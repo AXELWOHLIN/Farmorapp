@@ -8,20 +8,25 @@ import { getMessagesForChapter } from '@/lib/storage';
 import ChatMessage from '@/components/ChatMessage';
 import ChatInput from '@/components/ChatInput';
 import ChapterNav from '@/components/ChapterNav';
+import SaveIndicator from '@/components/SaveIndicator';
 
 export default function BerattaPage() {
   const {
     story,
     loading,
+    lastSaved,
     startStory,
     addUserMessage,
     addAssistantMessage,
+    editMessage,
+    removeMessage,
     setCurrentChapter,
   } = useStory();
   const [nameInput, setNameInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialQuestionSent = useRef<Set<string>>(new Set());
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -34,8 +39,11 @@ export default function BerattaPage() {
   // When entering a chapter with no messages, send initial AI question
   useEffect(() => {
     if (!story || streaming) return;
+    const key = `${story.id}-${story.currentChapter}`;
+    if (initialQuestionSent.current.has(key)) return;
     const chapterMessages = getMessagesForChapter(story, story.currentChapter);
     if (chapterMessages.length === 0) {
+      initialQuestionSent.current.add(key);
       sendInitialQuestion(story.currentChapter);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -64,12 +72,11 @@ export default function BerattaPage() {
       });
 
       if (res.status === 501) {
-        // No API key - use fallback questions
         const userCount = chatMessages.filter((m) => m.role === 'user').length;
         const fallbackQ = getNextQuestion(chapter, userCount);
         const fallback =
           fallbackQ ||
-          `Tack för att du delade med dig! Vill du berätta något mer om "${getChapter(chapter).title}"?`;
+          `Tack for att du delade med dig! Vill du beratta nagot mer om "${getChapter(chapter).title}"?`;
         addAssistantMessage(fallback, chapter);
         setStreaming(false);
         return;
@@ -95,12 +102,11 @@ export default function BerattaPage() {
 
       addAssistantMessage(fullText, chapter);
     } catch {
-      // Fallback on any error
       const userCount = chatMessages.filter((m) => m.role === 'user').length;
       const fallbackQ = getNextQuestion(chapter, userCount);
       const fallback =
         fallbackQ ||
-        `Tack för att du delade med dig! Vill du berätta något mer om "${getChapter(chapter).title}"?`;
+        `Tack for att du delade med dig! Vill du beratta nagot mer om "${getChapter(chapter).title}"?`;
       addAssistantMessage(fallback, chapter);
     } finally {
       setStreaming(false);
@@ -132,6 +138,14 @@ export default function BerattaPage() {
     const name = nameInput.trim();
     if (!name) return;
     startStory(name);
+  }
+
+  function handleEditMessage(messageId: string, newContent: string) {
+    editMessage(messageId, newContent);
+  }
+
+  function handleDeleteMessage(messageId: string) {
+    removeMessage(messageId);
   }
 
   if (loading) {
@@ -175,17 +189,27 @@ export default function BerattaPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col h-[calc(100vh-64px)]">
-      <div className="mb-4">
-        <ChapterNav
-          currentChapter={story.currentChapter}
-          onSelect={handleChapterSelect}
-          messages={story.messages}
-        />
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="flex-1 overflow-x-auto">
+          <ChapterNav
+            currentChapter={story.currentChapter}
+            onSelect={handleChapterSelect}
+            messages={story.messages}
+          />
+        </div>
+        <SaveIndicator lastSaved={lastSaved} />
       </div>
 
       <div className="flex-1 overflow-y-auto pb-4">
         {currentMessages.map((msg) => (
-          <ChatMessage key={msg.id} role={msg.role} content={msg.content} />
+          <ChatMessage
+            key={msg.id}
+            role={msg.role}
+            content={msg.content}
+            messageId={msg.id}
+            onEdit={handleEditMessage}
+            onDelete={handleDeleteMessage}
+          />
         ))}
         {streaming && streamingText && (
           <ChatMessage role="assistant" content={streamingText} />

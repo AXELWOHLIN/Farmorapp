@@ -53,6 +53,32 @@ export function addMessage(
   return updated;
 }
 
+export function updateMessage(
+  story: Story,
+  messageId: string,
+  newContent: string
+): Story {
+  const updated: Story = {
+    ...story,
+    messages: story.messages.map((m) =>
+      m.id === messageId ? { ...m, content: newContent, timestamp: Date.now() } : m
+    ),
+    updatedAt: Date.now(),
+  };
+  saveStory(updated);
+  return updated;
+}
+
+export function deleteMessage(story: Story, messageId: string): Story {
+  const updated: Story = {
+    ...story,
+    messages: story.messages.filter((m) => m.id !== messageId),
+    updatedAt: Date.now(),
+  };
+  saveStory(updated);
+  return updated;
+}
+
 export function getMessagesForChapter(
   story: Story,
   chapter: ChapterKey

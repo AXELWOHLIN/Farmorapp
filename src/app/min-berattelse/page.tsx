@@ -5,10 +5,11 @@ import { chapters } from '@/lib/chapters';
 import { getMessagesForChapter } from '@/lib/storage';
 import StoryView from '@/components/StoryView';
 import ExportButton from '@/components/ExportButton';
+import SaveIndicator from '@/components/SaveIndicator';
 import Link from 'next/link';
 
 export default function MinBerattelsePage() {
-  const { story, loading } = useStory();
+  const { story, loading, lastSaved, editMessage, removeMessage } = useStory();
 
   if (loading) {
     return (
@@ -47,9 +48,12 @@ export default function MinBerattelsePage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold">{story.name}s berättelse</h1>
-          <p className="text-brown-light/60 mt-1">
-            {totalAnswers} svar i {chaptersWithContent.length} kapitel
-          </p>
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-brown-light/60">
+              {totalAnswers} svar i {chaptersWithContent.length} kapitel
+            </p>
+            <SaveIndicator lastSaved={lastSaved} />
+          </div>
         </div>
         {totalAnswers > 0 && <ExportButton story={story} />}
       </div>
@@ -76,6 +80,8 @@ export default function MinBerattelsePage() {
               <StoryView
                 chapter={chapter}
                 messages={getMessagesForChapter(story, chapter.key)}
+                onEditMessage={editMessage}
+                onDeleteMessage={removeMessage}
               />
             </div>
           ))}
